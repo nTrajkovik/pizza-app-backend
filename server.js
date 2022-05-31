@@ -57,6 +57,6 @@ app.get('/pizzas-html', async (req, res) => {
 });
 app.use(express.static('public'));
 //app.get(...)
-app.listen(8081, function() {
-    console.log('listening on port 8081...');
+app.listen(process.env.PORT || 8081, function() {
+    console.log(`listening on port ${process.env.PORT || 8081}...`);
 });
