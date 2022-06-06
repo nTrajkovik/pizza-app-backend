@@ -1,41 +1,37 @@
+let pizzasCollection;
 const fs = require('fs');
 const path = require('path');
-let pizzasCollection;
 exports.registerMongoClient = (_client) => {
     pizzasCollection = _client.db('pizza-app').collection('pizzas');
 };
 
 exports.getAll = async (req, res) => {
     try {
-        let { priceFrom, priceSmallSort, priceBigSort, ingredients, tags, search } = req.query;
-        let filterQuery = {};
-        if (priceFrom) {
-            filterQuery.priceSmall = { $gte: parseInt(priceFrom) };
-            filterQuery.priceBig = { $gte: parseInt(priceFrom) };
-        }
-        if (ingredients) {
-            filterQuery.ingredients = { $regex: ingredients }
-        }
-        if (search && search.length) {
-            filterQuery.$or = [
-                { tags: { $elemMatch: { $in: [ search ] } } },
-                { ingredients: { $regex: search } },
-                { name: { $regex: search } }
-            ];
-        }
+        let { search, tags, page } = req.query;
+        const pageSize = 10;
+        console.log('tags', tags);
         if (tags && tags.length) {
             tags = JSON.parse(tags);
-            filterQuery.tags = { $elemMatch: { $in: tags } }
         }
-        let sortQuery = {};
-        if (priceSmallSort) {
-            sortQuery.priceSmall = priceSmallSort;
+        page = parseInt(page) || 1;
+        let filterQuery = {};
+        if (search && search.length) {
+            filterQuery = {
+                $or: [
+                    { name: { $regex: search, $options: 'i' } },
+                    { ingredients: { $regex: search, $options: 'i' } },
+                ],
+            };
         }
-        if (priceBigSort) {
-            sortQuery.priceBig = priceBigSort;
-        }
-        console.log(filterQuery);
-        const pizzas = await pizzasCollection.find(filterQuery).sort(sortQuery).toArray();
+        if (tags && tags.length) {
+            filterQuery.tags = { $all: tags };
+        } 
+        console.log('filterQuery', filterQuery);
+        const pizzas = await pizzasCollection
+            .find(filterQuery)
+            .skip((page - 1) * pageSize)
+            .limit(pageSize)
+            .toArray();
         return res.json(pizzas);
     } catch (e) {
         console.error(e);
@@ -55,17 +51,17 @@ exports.getOne = async (req, res) => {
 
 exports.insertOne = async (req, res) => {
     const pizza = req.body;
-    // const getMeta = (base64Data) => base64Data.substring("data:image/".length, base64Data.indexOf(";base64"))
-    // const getBase64 = (base64Data) => base64Data
-    //         .replace(/^data:image\/png;base64,/, "")
-    //         .replace(/^data:image\/jpeg;base64,/, "")
-    //         .replace(/^data:image\/jpg;base64,/, "");
     try {
-        // const imageName = pizza.name + '.' + getMeta(pizza.image);
-        // fs.writeFileSync(path.join('public', imageName), new Buffer.from(getBase64(pizza.image), 'base64'))
-        // pizza.image = imageName;
+        const getExtention = (base64data) => base64data.substring("data:image/".length, base64data.indexOf(';base64'));
+        const getBase64 = (base64data) => base64data.replace(/^data:image\/[a-z]+;base64,/, "");
+        const imageName = pizza.name + '.' + getExtention(pizza.image);
+        fs.writeFileSync(
+            path.join('public', imageName), 
+            new Buffer.from(getBase64(pizza.image), 'base64'),
+        );
+        pizza.image = 'http://localhost:8080/' + imageName;
         await pizzasCollection.insertOne(pizza);
-        res.end({message: 'Success on writing pizza', data: JSON.stringify(pizza)});
+        res.end();
     } catch (e) {
         console.error(e);
         if (e.code === 11000) {

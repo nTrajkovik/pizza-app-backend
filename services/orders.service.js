@@ -15,26 +15,15 @@ exports.getAll = async (req, res) => {
     }
 };
 
-exports.getOne = async (req, res) => {
-    const id = req.params.id;
-    try {
-        const order = await ordersCollection.findOne({_id: id});
-        res.json(order);
-    } catch (e) {
-        console.error(e);
-    }
-};
-
 exports.insertOne = async (req, res) => {
     const order = req.body;
     try {
-        const result = await ordersCollection.insertOne(order);
-        console.log(`Created order ${result.insertedId}`);
+        await ordersCollection.insertOne(order);
         res.send({message: 'Success on writing order', data: JSON.stringify(order)});
     } catch (e) {
         console.error(e);
         if (e.code === 11000) {
-            res.send({message: 'Pizza with that ID already exists'});
+            res.send({message: 'Order with that ID already exists'});
         }
         res.sendStatus(400);
     }
@@ -55,10 +44,14 @@ exports.updateOne = async (req, res) => {
     const id = req.params.id;
     const newOrder = req.body;
     try {
-        const result = await ordersCollection.findOneAndUpdate({_id: id}, {$set: newOrder});
+        console.log(`Updating order ${id}`);
+        console.log(newOrder);
+        const result = await ordersCollection.findOneAndUpdate(
+            { _id: ObjectId(id) },
+            { $set: newOrder },
+        );
         res.json(result);
     } catch (e) {
         console.error(e);
     }
 };
-
